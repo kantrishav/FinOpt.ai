@@ -5,3 +5,4 @@ interpolate
 numpy
 plotly
 pandas
+SciPy
