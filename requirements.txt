@@ -1,7 +1,6 @@
 yfinance
 openai 
 streamlit
-interpolate
 numpy
 plotly
 pandas
