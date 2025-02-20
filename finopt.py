@@ -1,18 +1,22 @@
 import yfinance as yf
-#import os
 from openai import OpenAI
 import streamlit as st
-#import anthropic
-#from st_audiorec import st_audiorec
 import openai
-#import tempfile 
-#import matplotlib.pyplot as plt
-#import plotly.express as px
 import warnings
-#from config import OPENAI_API_KEY
 st.set_page_config(layout="wide")
 
+# --- HIDE STREAMLIT STYLE ---
+hide_st_style = """
+<style>
+#Main Menu {visibility: hidden; }
+footer {visibility: hidden; }
+header {visibility: hidden;}
+</style>
+"""
+st.markdown (hide_st_style, unsafe_allow_html=True)
 
+
+#--------------------------------------
 warnings.filterwarnings('ignore')
 
 
@@ -31,7 +35,7 @@ st.markdown(
     """
     <style>
     .stApp {
-        background-color: 	#000000; 
+        background-color:       #000000; 
     }
     </style>
     """,
@@ -65,38 +69,44 @@ oil_data  = yf.download('CL=F', period='5d' , progress=False)
 oil_data = oil_data.sort_index(ascending=False)
 
 
-sp500_kpi = round(float(sp500_data1.iloc[4]["Adj Close"]), 2)
-prev_day_sp500 = round(float(sp500_data1.iloc[3]["Adj Close"]), 2)
-today_sp500 = round(float(sp500_data1.iloc[4]["Adj Close"]), 2)
+
+
+sp500_kpi = round(float(sp500_data1.iloc[4]["Close"]), 2)
+
+
+
+
+prev_day_sp500 = round(float(sp500_data1.iloc[3]["Close"]), 2)
+today_sp500 = round(float(sp500_data1.iloc[4]["Close"]), 2)
 change_sp500 = ((today_sp500-prev_day_sp500)/prev_day_sp500)*100
 change_sp500 = round(float(change_sp500),2)
 change_sp500 = f"{change_sp500} %"
 
 
 
-dow_kpi = round(float(dow_data.iloc[4]["Adj Close"]), 2)
-dow_prev  = round(float(dow_data.iloc[3]["Adj Close"]), 2)
+dow_kpi = round(float(dow_data.iloc[4]["Close"]), 2)
+dow_prev  = round(float(dow_data.iloc[3]["Close"]), 2)
 dow_change =  ((dow_kpi-dow_prev)/dow_prev)*100
 dow_change = round(float(dow_change),2)
 dow_change = f"{dow_change} %"
 
 
 
-qqq_kpi = round(float(qqq_data.iloc[4]["Adj Close"]), 2)
-qqq_prev  = round(float(qqq_data.iloc[3]["Adj Close"]), 2)
+qqq_kpi = round(float(qqq_data.iloc[4]["Close"]), 2)
+qqq_prev  = round(float(qqq_data.iloc[3]["Close"]), 2)
 qqq_change =  ((qqq_kpi-qqq_prev)/dow_prev)*100
 qqq_change = round(float(qqq_change),2)
 qqq_change = f"{qqq_change} %"
 
 
-gold_kpi = round(float(gold_data.iloc[0]["Adj Close"]), 2)
-gold_prev  = round(float(gold_data.iloc[1]["Adj Close"]), 2)
+gold_kpi = round(float(gold_data.iloc[0]["Close"]), 2)
+gold_prev  = round(float(gold_data.iloc[1]["Close"]), 2)
 gold_change =  ((gold_kpi-gold_prev)/gold_prev)*100
 gold_change = round(float(gold_change),2)
 gold_change = f"{gold_change} %"
 
-oil_kpi = round(float(oil_data.iloc[0]["Adj Close"]), 2)
-oil_prev  = round(float(oil_data.iloc[1]["Adj Close"]), 2)
+oil_kpi = round(float(oil_data.iloc[0]["Close"]), 2)
+oil_prev  = round(float(oil_data.iloc[1]["Close"]), 2)
 oil_change =  ((oil_kpi-oil_prev)/oil_prev)*100
 oil_change = round(float(oil_change),2)
 oil_change = f"{oil_change} %"
@@ -236,7 +246,7 @@ st.write("   ")
 
 client = OpenAI(
     # This is the default and can be omitted
-    api_key= st.secrets["OPEN_AI_KEY"],
+    api_key= "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",
 )
 
 st.markdown(
@@ -316,10 +326,10 @@ option_prompt = "You are an AI Option trader. Below is the text format of Option
 option_final_prompt = option_prompt + option_text_input
 
 
-with st.container():
-    a, b, c = st.columns([0.49, 1, 1])  # Adjust the width ratios as needed
-    with b:  # This places it in the center column
-        st.button("Submit",key="submit_button_1")
+#with st.container():
+ #   a, b, c = st.columns([0.49, 1, 1])  # Adjust the width ratios as needed
+  #  with b:  # This places it in the center column
+   #     st.button("Submit",key="submit_button_1")
 
 
 
@@ -352,6 +362,375 @@ if len(option_final_prompt) > 500:
     #st.write(op)
 else:
     st.write('')
+ 
+
+
+#-------------------- TICKER ANALYSIS  START ---------------------------------#
+
+
+import requests
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from scipy.stats import norm
+
+
+st.markdown(""" <h1 style='color: #FFFFFF;'>Ticker Analysis</h1> """, unsafe_allow_html=True)
+
+B1,B2,B3= st.columns(3)
+
+# Add content to each column in the first row
+with B1:
+    quote = st.selectbox("Select Ticker",('SPY', 'AAPL','TSLA' , 'MSFT' , 'EPI' , 'SMH', 'RTH', '_NDX', '_RUT', 'DBA', 'XHB', 'ARKG', 'ARKF',
+              'EWW', 'VNQ', 'HYG', 'XLP', 'XLU' ,'^SPX', 'XOP' ,'LQD', 'ARKK', 'XLF', 'SLV', 'EEM',
+              'HYG', 'IWM', 'QQQ', 'FXI', 'XLE', 'KWEB', 'TLT', 'EWZ', 'EFA', 'GDX', 'DIA', 'GLD'),key = 'sq1',)
+
+
+with B2:
+    yf_ticker = yf.Ticker(quote)
+    expiration_dates = yf_ticker.options
+    selec_date = st.selectbox("Select the Expiration Date",(expiration_dates),key = 'sq2',)   
+
+
+with B3:
+    period_selected = st.selectbox("Observation Period for % Price Change",(1,7,14 ,21,30,90,180),key = 'ps1',) 
+
+
+
+def op_chain(quote):
+    url = f"https://cdn.cboe.com/api/global/delayed_quotes/options/{quote}.json"
+    response = requests.get(url)
+    data = response.json()
+    options_data = data['data']['options']
+    df = pd.json_normalize(options_data)
+    df['expiry'] = df['option'].str[-15:-9]
+    df['type']  = df['option'].str[-9:-8]
+    df['strike'] = df['option'].str[-8:]
+    df['left'] = df['strike'].str[:5]     # Get the first 5 characters (significant digits)
+    df['right'] = df['strike'].str[-3:]   # Get the last 3 characters (fractional part)
+    df['strike'] = (df['left'] + df['right']).astype(float) / 1000 
+    df['expiry'] = pd.to_datetime(df['expiry'], format='%y%m%d')
+    op_chain_df = df[df['expiry'] == selec_date]
+    temp_df = op_chain_df
+    call = temp_df[temp_df['type'] == 'C']
+    put = temp_df[temp_df['type'] == 'P']
+    op_chain_df = pd.merge(call, put, on="strike" , suffixes=("_call", "_put"))
+    op_chain_df.columns= op_chain_df.columns.str.upper()
+    return op_chain_df
+
+op_chain_df = op_chain(quote)
+
+
+
+
+#STANDARD DEV
+
+
+apple_stock = yf_ticker
+data = apple_stock.history(period="5y")
+# Calculate daily change (percentage change)
+data['Daily Change'] = data['Close'].pct_change(periods= period_selected) * 100  # Percentage change
+
+# Drop the first row as it will be NaN after pct_change
+data = data.dropna()
+
+# Calculate the mean and standard deviation of the daily change
+mean = data['Daily Change'].mean()
+std_dev = data['Daily Change'].std()
+
+# Calculate 1st, 2nd, and 3rd standard deviations
+first_sd = mean + std_dev
+second_sd = mean + 2 * std_dev
+third_sd = mean + 3 * std_dev
+
+# Plotting using Plotly
+fig = go.Figure()
+
+# Add the histogram
+fig.add_trace(go.Histogram(
+    x=data['Daily Change'],
+    nbinsx=50,
+    histnorm='probability density',
+    name='Daily Change',
+    opacity=0.75,
+    marker=dict(color='#0ff550')
+))
+
+# Add the normal distribution fit
+x = np.linspace(data['Daily Change'].min(), data['Daily Change'].max(), 100)
+p = norm.pdf(x, mean, std_dev)
+fig.add_trace(go.Scatter(
+    x=x, y=p,
+    mode='lines',
+    name=f'Normal fit: μ={mean:.2f}, σ={std_dev:.2f}',
+    line=dict(color='blue',width = 4)  # Normal line color set to yellow
+))
+
+# Add lines for 1st, 2nd, and 3rd standard deviations on both sides (positive and negative)
+fig.add_trace(go.Scatter(
+    x=[first_sd, first_sd],
+    y=[0, max(p)],
+    mode='lines',
+    name="1st SD",
+    line=dict(color='blue', dash='dash')
+))
+
+fig.add_trace(go.Scatter(
+    x=[-first_sd, -first_sd],
+    y=[0, max(p)],
+    mode='lines',
+    name="1st SD",
+    line=dict(color='blue', dash='dash')
+))
+
+fig.add_trace(go.Scatter(
+    x=[second_sd, second_sd],
+    y=[0, max(p)],
+    mode='lines',
+    name="2nd SD",
+    line=dict(color='orange', dash='dash')
+))
+
+fig.add_trace(go.Scatter(
+    x=[-second_sd, -second_sd],
+    y=[0, max(p)],
+    mode='lines',
+    name="2nd SD",
+    line=dict(color='orange', dash='dash')
+))
+
+fig.add_trace(go.Scatter(
+    x=[third_sd, third_sd],
+    y=[0, max(p)],
+    mode='lines',
+    name="3rd SD",
+    line=dict(color='red', dash='dash')
+))
+
+fig.add_trace(go.Scatter(
+    x=[-third_sd, -third_sd],
+    y=[0, max(p)],
+    mode='lines',
+    name="3rd SD",
+    line=dict(color='red', dash='dash')
+))
+
+# Add annotations for SD values
+fig.add_annotation(
+    x=first_sd,
+    y=max(p) * 0.8,
+    text=f"1st SD: {first_sd:.2f}%",
+    showarrow=True,
+    arrowhead=2,
+    ax=20,
+    ay=-30,
+    font=dict(size=12, color='blue')
+)
+
+fig.add_annotation(
+    x=-first_sd,
+    y=max(p) * 0.8,
+    text=f"1st SD: {-first_sd:.2f}%",
+    showarrow=True,
+    arrowhead=2,
+    ax=20,
+    ay=-30,
+    font=dict(size=12, color='blue')
+)
+
+fig.add_annotation(
+    x=second_sd,
+    y=max(p) * 0.7,
+    text=f"2nd SD: {second_sd:.2f}%",
+    showarrow=True,
+    arrowhead=2,
+    ax=20,
+    ay=-30,
+    font=dict(size=12, color='orange')
+)
+
+fig.add_annotation(
+    x=-second_sd,
+    y=max(p) * 0.7,
+    text=f"2nd SD: {-second_sd:.2f}%",
+    showarrow=True,
+    arrowhead=2,
+    ax=20,
+    ay=-30,
+    font=dict(size=12, color='orange')
+)
+
+fig.add_annotation(
+    x=third_sd,
+    y=max(p) * 0.6,
+    text=f"3rd SD: {third_sd:.2f}%",
+    showarrow=True,
+    arrowhead=2,
+    ax=20,
+    ay=-30,
+    font=dict(size=12, color='red')
+)
+
+fig.add_annotation(
+    x=-third_sd,
+    y=max(p) * 0.6,
+    text=f"3rd SD: {-third_sd:.2f}%",
+    showarrow=True,
+    arrowhead=2,
+    ax=20,
+    ay=-30,
+    font=dict(size=12, color='red')
+)
+
+# Update layout
+fig.update_layout(
+    title='',
+    xaxis_title='Daily Percentage Change (%)',
+    yaxis_title='Density',
+    showlegend=False,
+    plot_bgcolor='black',  # Set the background color of the plot area
+    paper_bgcolor='black',  # Set the background color of the entire figure
+    font=dict(color='white'),  # Set font color to white for contrast
+    yaxis=dict(showgrid=False) 
+)
+
+
+#STOCK TREND 
+
+
+
+stock_data =yf_ticker
+data = stock_data.history(period='5y')  # Fetch last 5 years of data
+
+# Calculate 100-day and 200-day moving averages
+data['MA100'] = data['Close'].rolling(window=100).mean()
+data['MA200'] = data['Close'].rolling(window=200).mean()
+
+ma_100 = data['MA100'].iloc[-1]
+ma_200 = data['MA200'].iloc[-1]
+stock_price_today = data['Close'].iloc[-1]
+stock_price_today = f"{stock_price_today:.2f}"
+
+if ma_100 > ma_200:
+    ma_signal = 'Buy'
+else:
+    ma_signal = 'Sell'
+
+
+if ma_signal == 'Buy':
+    signal_color = '#0ff550'
+else:
+     signal_color = '#f2073e'
+
+
+# Create the line chart for stock closing prices and moving averages
+fig_trend = go.Figure()
+
+# Plot the stock closing prices
+fig_trend.add_trace(go.Scatter(
+    x=data.index,
+    y=data['Close'],
+    mode='lines',
+    name=f'{quote} Stock Price',
+    line=dict(color='yellow', width=2)
+))
+
+# Plot the 100-day moving average
+fig_trend.add_trace(go.Scatter(
+    x=data.index,
+    y=data['MA100'],
+    mode='lines',
+    name='100-Day MA',
+    line=dict(color='green', width=2, dash='dash')  # Green dashed line for 100-Day MA
+))
+
+# Plot the 200-day moving average
+fig_trend.add_trace(go.Scatter(
+    x=data.index,
+    y=data['MA200'],
+    mode='lines',
+    name='200-Day MA',
+    line=dict(color='red', width=2, dash='dash')  # Red dashed line for 200-Day MA
+))
+
+# Update layout for better visuals and set background to black
+fig_trend.update_layout(
+#    title=f'{quote} Stock Trend (Last 5 Years) with Moving Averages',
+    xaxis_title='Date',
+    yaxis_title='Price (USD)',
+    xaxis_rangeslider_visible=False,  # Remove range slider
+    plot_bgcolor='black',  # Set the plot area background color to black
+    paper_bgcolor='black',  # Set the overall background color to black
+    font=dict(color='white'),  # Set the font color to white for contrast
+    template='plotly_dark' , # Use dark theme
+    yaxis=dict(showgrid=False)
+)
+
+
+
+
+
+#-------------
+
+
+
+# Custom CSS for tabs
+st.markdown("""
+<style>
+
+        .stTabs [data-baseweb="tab-list"] {
+                gap: 15px;
+    }
+
+        .stTabs [data-baseweb="tab"] {
+                height: 0px;
+        width: 200px;
+        white-space: pre-wrap;
+                background-color: #FFFFFF;
+                border-radius: 15px 15px 15px 15px;
+                gap: 80px;
+        color: black;
+                padding-top: 18px;
+                padding-bottom: 18px;
+        
+  
+    }
+
+        .stTabs [aria-selected="true"] {
+                background-color: #EC3637;
+    border-bottom: 5px solid black;
+        }
+
+</style>""", unsafe_allow_html=True)
+
+# Create tabs
+tab1, tab2, tab3 = st.tabs(["Option Chain", "Stock Analysis", "Trend Chart"])
+
+# Tab content
+with tab1:
+    st.dataframe(op_chain_df)
+
+with tab2:
+    st.plotly_chart(fig,use_container_width=True)
+
+
+with tab3:
+    st.markdown(f""" <div style='text-align: right;'> <h1 style='color:{signal_color}; font-size: 20px;'>{quote} : {stock_price_today} |     Trade Signal : {ma_signal} </h1> </div> """, unsafe_allow_html=True)
+    st.plotly_chart(fig_trend,use_container_width=True, key = 't3')
+
+
+
+
+
+
+#-------------TICKER ANALYSIS END --------------------#
+
+
+
+
+
+
+
 
 
 #---------Betting App------------------------------------------------------
@@ -446,7 +825,7 @@ st.markdown(
     """
     <style>
     /* Targeting all labels within the Streamlit app */
-    .stNumberInput > label ,.stSlider > label ,.stSelectbox > label {
+    .stNumberInput > label ,.stSlider > label ,.stSelectbox > label ,.stTextInput > label ,.stMultiSelect  > label  {
         color: #00FF00;  /* Set label color to green */
         font-weight: bold; /* Optionally, make the text bold */
     }
@@ -577,6 +956,68 @@ st.plotly_chart(fig_simulation)
 
 
 
+#----------- Term Structure -----------------------------------
+
+st.markdown(
+    """
+    <h1 style='color: #FFFFFF;'>Option Volatility Term Structure</h1>
+    """, unsafe_allow_html=True
+)
+
+T1, T2, T3 , T4 , T5 , T6 , T7 ,T8= st.columns(8)
+
+# Add content to each column in the first row
+with T1:
+    ticker = st.selectbox("Select Ticker",('SPY', 'AAPL','TSLA' , 'MSFT' , 'EPI' , 'SMH', 'RTH', '_NDX', '_RUT', 'DBA', 'XHB', 'ARKG', 'ARKF',
+              'EWW', 'VNQ', 'HYG', 'XLP', 'XLU' ,'^SPX', 'XOP' ,'LQD', 'ARKK', 'XLF', 'SLV', 'EEM',
+              'HYG', 'IWM', 'QQQ', 'FXI', 'XLE', 'KWEB', 'TLT', 'EWZ', 'EFA', 'GDX', 'DIA', 'GLD'),)
+
+
+with T2:
+    yf_ticker = yf.Ticker(ticker)
+    expiration_dates = yf_ticker.options
+    selected_exp_date = st.selectbox("Select the Expiration Date",(expiration_dates),)   
+
+
+options = yf_ticker.option_chain(selected_exp_date)
+calls = options.calls
+puts = options.puts
+
+
+calls['Type'] = 'Call'
+puts['Type']= 'Put'
+
+puts['lastTradeDate'] = puts['lastTradeDate'].dt.date
+puts['impliedVolatility'] = round(puts['impliedVolatility'],2)
+puts = puts.rename(columns={'impliedVolatility': 'Imp Volatility'})
+puts = puts.rename(columns={'strike': 'Strike Price'})
+
+
+calls['lastTradeDate'] = calls['lastTradeDate'].dt.date
+calls['impliedVolatility'] = round(calls['impliedVolatility'],2)
+calls = calls.rename(columns={'impliedVolatility': 'Imp Volatility'})
+calls = calls.rename(columns={'strike': 'Strike Price'})
+
+comb_term_option = []
+comb_term_option = pd.concat([calls, puts], ignore_index=True)
+combo_fig = px.line(comb_term_option, x="Strike Price", y="Imp Volatility" , color = 'Type' , color_discrete_map={"Call": "#00FF00", "Put":"#0A64EE"} , markers = True)
+combo_fig.update_layout(
+    paper_bgcolor='black',  # Background color of the chart
+    plot_bgcolor='black',   # Background color of the plotting area
+    font_color='white',      # Font color for text
+    xaxis=dict(showgrid=False , zeroline=False),  # Remove gridlines
+    yaxis=dict(showgrid=False,zeroline=False) ,  # Remove gridlines
+    width=1400,  # Set width of the plot
+    height=450,
+)
+
+combo_fig.update_traces(line=dict(width=6))
+st.plotly_chart(combo_fig)
+
+
+#---------------------------------------------------------------------------------
+
+
 #-------------Volatility Surface-------------------------------
 import yfinance as yf
 import pandas as pd
@@ -658,7 +1099,7 @@ def plot_volatility_surface(ticker, num_expirations=10):
             zaxis_title='Implied Volatility',
             bgcolor='black'  # Set the background color of the scene to black
         ),
-        paper_bgcolor='black',  # Set the overall background color to black
+        paper_bgcolor='#000000',  # Set the overall background color to black
         font=dict(color='white'),  # Set font color to white for better contrast
         width=1500,  # Set width of the plot
         height=1100   # Set height of the plot
@@ -698,15 +1139,238 @@ with b:
 
 # User Input for Ticker Symbol
 #ticker = st.text_input("Enter Ticker Symbol", "TSLA")
-#num_expirations = st.slider("Number of Expiration Dates to Fetch", 1, 20, 10)
-
+#num_expirations = st.slider("Number of Expiration Dates to Fetch", 1, 20, 10)st.plotly_chart(fig)
 
 # Plot the volatility surface
 fig = plot_volatility_surface(ticker, num_expirations)
 st.plotly_chart(fig)
 
-
 #----------------------------------
+
+
+
+
+#------------------------ Iron Condor Screener Section Start Added on 24th November  -----------------------#
+
+import requests
+st.markdown( f""" <h1 style='color: #FFFFFF;'>Option Strategy Scanner </h1> """, unsafe_allow_html=True)
+
+
+
+P1, P2, P3 = st.columns(3)
+
+# Add content to each column in the first row
+
+
+with P1:
+    strategy = st.selectbox("Pick Strategy",('Iron Condor','Bull Put Spread','Bear Call Spread'),)
+    
+
+
+with P2:
+    ticker_ic = ['SPY', 'AAPL','TSLA' , 'MSFT' , 'EPI' , 'SMH', 'RTH', '_NDX', '_RUT', 'DBA', 'XHB', 'ARKG', 'ARKF',
+              'EWW', 'VNQ', 'HYG', 'XLP', 'XLU' ,'^SPX', 'XOP' ,'LQD', 'ARKK', 'XLF', 'SLV', 'EEM',
+              'HYG', 'IWM', 'QQQ', 'FXI', 'XLE', 'KWEB', 'TLT', 'EWZ', 'EFA', 'GDX', 'DIA', 'GLD']
+
+    options = st.multiselect("Stocks/ETF",ticker_ic, max_selections = 5, default = 'QQQ')
+
+
+
+with P3:
+    dte = st.selectbox("Select DTE",(30,45,60,90,14),)
+
+
+P4 , P5 , P6 = st.columns(3)
+
+
+with P4:
+    risk_reward_variable = st.slider(" Risk & Reward ", min_value=1, max_value=30, value=(2,5))
+
+    
+
+with P5:
+    var_pop = st.slider("Problity of Profit %", min_value=10, max_value=100, value=(70,85))
+
+
+
+
+
+def get_option_chain(ticker):
+    url = f"https://cdn.cboe.com/api/global/delayed_quotes/options/{ticker}.json"
+    response = requests.get(url)
+    data = response.json()
+    options_data = data['data']['options']
+    df = pd.json_normalize(options_data)
+    df['expiry'] = df['option'].str[-15:-9]
+    df['type']  = df['option'].str[-9:-8]
+    df['expiry'] = pd.to_datetime(df['expiry'], format='%y%m%d')
+    
+    df['days_to_expiry'] = (df['expiry'] - pd.Timestamp.today()).dt.days
+    
+    #df['abs_30_expiry'] = abs(30- df['days_to_expiry'])
+    #min_30_exp = min(df['abs_30_expiry'])
+    
+    df['diff'] = abs((df['expiry'] - pd.Timestamp.today()).dt.days)
+    df['diff'] = abs(dte-df['diff']) # added
+    
+    min_30_exp = min(df['diff']) # added
+    df['strikes'] = df['option'].str[-8:]  # Get the last 8 characters
+    df['left'] = df['strikes'].str[:5]     # Get the first 5 characters (significant digits)
+    df['right'] = df['strikes'].str[-3:]   # Get the last 3 characters (fractional part)
+    df['strikes'] = (df['left'] + df['right']).astype(float) / 1000  # Combine, convert to float, divide by 100
+    df = df.drop(columns=['left', 'right'])
+    min_diff = min(df['diff'])
+    #filtered_df = df[df['diff'] == min_diff]
+    filtered_df = df[df['diff'] == min_30_exp] #added
+    max_expiry = max(filtered_df['expiry'])
+    max_expiry = pd.to_datetime(max_expiry).date().strftime('%Y-%m-%d')
+    latest_expiration = max_expiry
+    option_chain = df[df['expiry'] == max_expiry]
+    return option_chain, latest_expiration
+
+
+
+
+
+
+
+for i in range(len(options)):
+    ticker = options[i]
+    option_chain = get_option_chain(ticker)[0]
+    latest_expiration = get_option_chain(ticker)[1]
+    option_chain = pd.DataFrame(option_chain)
+    #st.write(option_chain)
+
+    data_show = option_chain
+    data_show_call = option_chain
+
+    data_show = data_show[data_show['type'] == 'P']
+    data_show_call = data_show_call[data_show_call['type'] == 'C']
+
+    data_show_call['premium'] = (data_show_call['bid'] + data_show_call['ask']) / 2
+    data_show['premium'] = (data_show['bid'] + data_show['ask']) / 2
+
+    data_show['delta_20'] = abs(0.20 - abs(data_show['delta']))
+    data_show_call['delta_20'] = abs(0.20 - abs(data_show_call['delta']))
+
+    abs_20_delta = min(data_show['delta_20'])
+    abs_20_delta_call = min(data_show_call['delta_20'])
+
+    data_show = data_show[['option','strikes','delta','premium','iv','open_interest','delta_20']]
+    data_show_call = data_show_call[['option','strikes','delta','premium','iv','open_interest','delta_20']]
+
+    data_show_20_delta_put = data_show[data_show['delta_20'] == abs_20_delta]
+    data_show_20_delta_call = data_show_call[data_show_call['delta_20'] == abs_20_delta_call]
+    
+    delta_at_20_var =  data_show_20_delta_put['delta']
+    delta_at_20_var_call =  data_show_20_delta_call['delta']
+
+    data_show_other_than_20 = data_show[data_show['delta'] > delta_at_20_var.iloc[0] ]
+    data_show_other_than_20_call = data_show_call[data_show_call['delta'] < delta_at_20_var_call.iloc[0] ]
+
+    data_show_other_than_20 = data_show_other_than_20.add_suffix('_temp')
+    data_show_other_than_20_call = data_show_other_than_20_call.add_suffix('_buy')
+    
+    df_com      = data_show_20_delta_put.merge(data_show_other_than_20, how = 'cross')
+    df_com_call = data_show_20_delta_call.merge(data_show_other_than_20_call, how = 'cross')
+
+
+    df_com['risk'] = (df_com['strikes'] -  df_com['strikes_temp'])*100 - (df_com['premium'] - df_com['premium_temp'])*100
+    df_com['reward'] = (df_com['premium'] - df_com['premium_temp'])*100
+    
+    df_com['ratio'] = ((df_com['strikes'] -  df_com['strikes_temp'])*100 - (df_com['premium'] - df_com['premium_temp'])*100)/ ((df_com['premium'] - df_com['premium_temp'])*100)
+
+    df_com_call['risk'] = (df_com_call['strikes_buy'] -  df_com_call['strikes'])*100 - (df_com_call['premium'] - df_com_call['premium_buy'])*100
+    df_com_call['reward'] = (df_com_call['premium'] - df_com_call['premium_buy'])*100
+
+    df_com_call['ratio'] = ((df_com_call['strikes_buy'] -  df_com_call['strikes'])*100 - (df_com_call['premium']-df_com_call['premium_buy'])*100)//((df_com_call['premium'] - df_com_call['premium_buy'])*100) 
+
+
+
+    
+    bear_call_spread = df_com_call.rename(columns={
+    'option': 'option_sell_call',
+    'strikes': 'strikes_sell_call',
+    'delta': 'delta_sell_call',
+    'premium': 'premium_sell_call',
+    'iv': 'iv_sell_cal',
+    'open_interest': 'open_interest_sell_call',
+    'delta_20': 'delta_20_sell_call',
+    'option_buy': 'option_buy_call',
+    'strikes_buy': 'strikes_buy_call',
+    'delta_buy': 'delta_buy_call',
+    'premium_buy': 'premium_buy_call',
+    'iv_buy': 'iv_buy_call',
+     'open_interest': 'open_interest_buy_call',
+    'delta_20': 'delta_20_buy_call',
+    'risk': 'risk_bear_call_spread',
+    'reward':'reward_bear_call_spread',
+    'ratio' : 'ratio_bear_call_spread'
+    })
+           
+    bull_put_spread = df_com.rename(columns={
+    'option': 'option_sell_put',
+    'strikes': 'strikes_sell_put',
+    'premium': 'premium_sell_put',
+    'delta': 'delta_sell_put',
+    
+    'option_temp': 'option_buy_put',
+    'strikes_temp': 'strikes_buy_put',
+    'premium_temp': 'premium_buy_put',
+    'delta_temp': 'delta_buy_put',
+    'risk' : 'risk_bull_put_spread',
+    'reward':'reward_bull_put_spread',
+    'ratio' : 'ratio_bull_put_spread'
+    })
+            
+  
+    
+    iron_codor_df =  bear_call_spread.merge(bull_put_spread, how = 'cross')
+    iron_codor_df['REWARD'] = (iron_codor_df['premium_sell_call'] + iron_codor_df['premium_sell_put'] - iron_codor_df['premium_buy_call'] - iron_codor_df['premium_buy_put'])*100
+    
+    iron_codor_df['RISK'] = (np.maximum(iron_codor_df['strikes_buy_call'] - iron_codor_df['strikes_sell_call'],iron_codor_df['strikes_sell_put'] - iron_codor_df['strikes_buy_put']) - (iron_codor_df['premium_sell_call'] + iron_codor_df['premium_sell_put'] - iron_codor_df['premium_buy_call'] - iron_codor_df['premium_buy_put']))*100
+    
+    iron_codor_df['RISK & REWARD'] = (np.maximum(iron_codor_df['strikes_buy_call'] - iron_codor_df['strikes_sell_call'],iron_codor_df['strikes_sell_put'] - iron_codor_df['strikes_buy_put']) - (iron_codor_df['premium_sell_call'] + iron_codor_df['premium_sell_put'] - iron_codor_df['premium_buy_call'] - iron_codor_df['premium_buy_put'])) / (iron_codor_df['premium_sell_call'] + iron_codor_df['premium_sell_put'] - iron_codor_df['premium_buy_call'] - iron_codor_df['premium_buy_put']
+)
+    iron_codor_df['PROB PROFIT %'] = (1-abs(iron_codor_df['delta_sell_put']))*100
+    
+    iron_codor_df = iron_codor_df[ (iron_codor_df['RISK & REWARD'] >= risk_reward_variable[0]) & (iron_codor_df['RISK & REWARD'] <= risk_reward_variable[1]) ]
+
+    iron_codor_df = iron_codor_df[ (iron_codor_df['PROB PROFIT %'] >= var_pop[0]) & (iron_codor_df['PROB PROFIT %'] <= var_pop[1])]
+
+    sort_colmns = ['RISK', 'REWARD' , 'RISK & REWARD' , 'PROB PROFIT %' ]
+    new_order = sort_colmns + [col for col in iron_codor_df.columns if col not in sort_colmns]
+    iron_codor_df = iron_codor_df[new_order]
+    iron_codor_df.columns = iron_codor_df.columns.str.upper()
+
+    
+
+    if strategy == 'Iron Condor':
+        st.markdown( f""" <h1 style='color: #0ff550;'>Top Iron Condor Combination For : {options[i]}</h1> """, unsafe_allow_html=True)
+        st.write(iron_codor_df)
+    elif strategy == 'Bull Put Spread':
+        st.markdown( f""" <h1 style='color: #0ff550;'>Top Bull Put Spreads Combination For : {options[i]}</h1> """, unsafe_allow_html=True)
+        st.write(bull_put_spread)
+    elif strategy == 'Bear Call Spread':
+        st.markdown( f""" <h1 style='color: #0ff550;'>Top Bear Call Spreads Combination For : {options[i]}</h1> """, unsafe_allow_html=True)
+        st.write('Bear Call Spread')
+    else:
+        st.write('Data Not Avaialble')
+    
+
+
+
+
+
+st.write("")
+st.title("")
+st.title("")
+st.title("")
+st.title("")
+st.title("")
+st.title("")
+st.title("")
+st.title("")
 
 st.markdown(
     """
@@ -716,4 +1380,6 @@ st.markdown(
 )
 
 
-
+#------------------------ Iron Condor Screener Section End -----------------------#
+'''
+'''
